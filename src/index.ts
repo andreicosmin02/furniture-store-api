@@ -20,6 +20,8 @@ app.use(express.json()); // Parse JSON bodies
 const createFirstAdmin = async () => {
     const adminEmail = process.env.FIRST_ADMIN_EMAIL;
     const adminPassword = process.env.FIRST_ADMIN_PASSWORD;
+    const adminFirstName = process.env.FIRST_ADMIN_FIRST_NAME || 'Admin';
+    const adminLastName = process.env.FIRST_ADMIN_LAST_NAME || 'User';
 
     if (!adminEmail || !adminPassword) {
         console.log('FIRST_ADMIN_EMAIL/PASSWORD not set - skipping admin creation');
@@ -32,6 +34,8 @@ const createFirstAdmin = async () => {
 
         if (!existingAdmin) {
             const admin = new User({
+                firstName: adminFirstName,
+                lastName: adminLastName,
                 email: adminEmail,
                 password: adminPassword, // Will be hashed automatically by User model's pre-save hook
                 role: 'admin'
