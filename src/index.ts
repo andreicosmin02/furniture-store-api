@@ -4,6 +4,7 @@ import cors from 'cors';
 import connectDB from './config/db';
 import authRoutes from './routes/auth.routes';
 import User from './models/User';
+import userRoutes from './routes/user.routes';
 
 // Load environment variables
 dotenv.config();
@@ -59,6 +60,7 @@ connectDB()
     });
 
 app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
     
 // Health check endpoint
 app.get('/health', (req, res) => {

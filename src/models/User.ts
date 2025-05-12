@@ -63,4 +63,12 @@ userSchema.methods.comparePassword = async function (password: string) {
     return await bcrypt.compare(password, this.password);
 };
 
+userSchema.set('toJSON', {
+    transform: function(doc, ret) {
+        delete ret.password;
+        delete ret.__v;
+        return ret;
+    }
+});
+
 export default model<IUser>('User', userSchema);
