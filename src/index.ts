@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import User from './models/User';
 import userRoutes from './routes/user.routes';
 import productRoutes from './routes/product.routes';
+import orderRoutes from './routes/order.routes';
 
 // Load environment variables
 dotenv.config();
@@ -63,6 +64,7 @@ connectDB()
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/products', productRoutes);
+app.use('/orders', orderRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
