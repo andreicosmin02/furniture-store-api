@@ -2,13 +2,19 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import dotenv from 'dotenv';
+import { error } from 'console';
 
 dotenv.config();
 
-// Register (Admin-only)
-export const register = async (req: Request, res: Response): Promise<any> => {
+// Customer registrateion (Public)
+export const registerCustomer = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { email, password, role } = req.body;
+        const { firstName, lastName, email, password }= req.body;
+
+        // Validate required fields
+        if (!firstName || !lastName) {
+            return res.status(400).json({ error: 'First name and last name are required' });
+        }
 
         // Check if user exists
         const existingUser = await User.findOne({ email });
@@ -16,11 +22,73 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             return res.status(400).json({ error: 'Email already exists' });
         }
 
-        // Create a new user
-        const user = new User({ email, password, role });
+        // Create new customer
+        const user = new User({
+            firstName,
+            lastName,
+            email,
+            password,
+            role: 'customer'    // Force customer role
+        });
+
         await user.save();
 
-        res.status(201).json({ message: 'User created' });
+        res.status(201).json({
+            message: 'Customer registeres successfully',
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Registration failed' });
+    }
+}
+
+// Employee/Admin registration (Admin-only)
+export const register = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { firstName, lastName, email, password, role } = req.body;
+
+        // Validate required fields
+        if (!firstName || !lastName) {
+            return res.status(400).json({ error: 'First name and last name are required' })
+        }
+
+        // Prevent creating cusotmers through this endpoint
+        if (role === 'customer') {
+            return res.status(403).json({ error: 'Cannot create customer accounts through this endpoint' });
+        }
+
+        // Check if user exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+
+        // Create a new staff user
+        const user = new User({ 
+            firstName,
+            lastName,
+            email, 
+            password, 
+            role 
+        });
+
+        await user.save();
+
+        res.status(201).json({ 
+            message: 'Staff user created',
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role
+            }
+        });
     } catch (error) {
         res.status(500).json({ error: 'Registration failed' });
     }
@@ -50,8 +118,16 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             { expiresIn: '1h' }
         );
 
-        res.json({ token });
-            
+        res.json({ 
+            token,
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role
+            }
+        });            
     } catch (error) {
         res.status(500).json({ error: 'Login failed' });
     }

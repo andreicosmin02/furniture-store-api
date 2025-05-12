@@ -11,3 +11,5 @@ dist/
 # IDE/Editor files
 .vscode/
 *.log
+
+users.json
