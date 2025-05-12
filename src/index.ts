@@ -5,6 +5,7 @@ import connectDB from './config/db';
 import authRoutes from './routes/auth.routes';
 import User from './models/User';
 import userRoutes from './routes/user.routes';
+import productRoutes from './routes/product.routes';
 
 // Load environment variables
 dotenv.config();
@@ -61,7 +62,8 @@ connectDB()
 
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
-    
+app.use('/products', productRoutes);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
