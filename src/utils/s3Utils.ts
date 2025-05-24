@@ -9,7 +9,7 @@ export const uploadToS3 = async (fileBuffer: Buffer, fileName: string, mimetype:
         Bucket: bucketName,
         Key: fileName,
         Body: fileBuffer,
-        ContentType: mimetype
+        ContentType: mimetype,
     };
 
     await s3Client.send(new PutObjectCommand(params));

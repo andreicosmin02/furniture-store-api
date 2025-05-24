@@ -4,6 +4,7 @@ import {
     createProduct,
     getAllProducts,
     getProductById,
+    getProductImage,
     updateProduct,
     deleteProduct,
     updateStock
@@ -16,6 +17,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Public routes
 router.get('/', getAllProducts);
 router.get('/:id', getProductById);
+router.get('/:id/image', getProductImage);
 
 // Admin protected routes
 router.post('/', authenticateJWT as any, authorizeAdmin as any, upload.single('image'), createProduct as any);

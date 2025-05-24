@@ -6,7 +6,7 @@ interface IProduct extends Document {
     short_description: string;
     long_description: string;
     price: number;
-    imageUrl: string;
+    imageKey: string;
     quantity: number;
     createdAt: Date;
     updatedAt: Date;
@@ -36,7 +36,7 @@ const productSchema = new Schema<IProduct>({
         required: true,
         min: 0
     },
-    imageUrl: {
+    imageKey: {
         type: String,
         required: true
     },

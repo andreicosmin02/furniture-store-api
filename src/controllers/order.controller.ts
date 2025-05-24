@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Order from '../models/Order';
 import Product from '../models/Product';
+import { getS3Url } from '../utils/s3Utils';
 
 export const createOrder = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -45,7 +46,8 @@ export const getOrderById = async (req: Request, res: Response): Promise<any> =>
     try {
         const order = await Order.findById(req.params.id)
             .populate('user', 'firstName lastName email')
-            .populate('products.product', 'name price imageUrl');
+            // .populate('products.product', 'name price imageUrl');
+            .populate('products.product', 'name price imageKey');
 
         if (!order) {
             return res.status(404).json({ error: 'Order not found' });
@@ -56,7 +58,20 @@ export const getOrderById = async (req: Request, res: Response): Promise<any> =>
             return res.status(403).json({ error: 'Unauthorized' });
         }
 
-        res.json(order);
+        // Add image URLs to products
+        const orderWithUrls = {
+            ...order.toObject(),
+            products: await Promise.all(order.products.map(async (p: any) => {
+                const product = p.product;
+                if (product?.imageKey) {
+                    product.imageUrl = await getS3Url(product.imageKey);
+                    delete product.imageKey;
+                }
+                return p;
+            }))
+        }
+
+        res.json(orderWithUrls);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch order' });
     }
@@ -135,7 +150,8 @@ export const getAllOrders = async (req: Request, res: Response): Promise<any> =>
         const orders = await Order.find()
             .sort('-createdAt')
             .populate('user', 'firstName lastName email')
-            .populate('products.product', 'name price imageUrl');
+            // .populate('products.product', 'name price imageUrl');
+            .populate('products.product', 'name price imageKey');
 
         res.json(orders);
     } catch (error) {
