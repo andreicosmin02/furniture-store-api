@@ -5,6 +5,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 const bucketName = process.env.AWS_S3_BUCKET_NAME
 
 export const uploadToS3 = async (fileBuffer: Buffer, fileName: string, mimetype: string) => {
+    // Handle base64 strings
+    if (typeof fileBuffer === 'string') {
+        fileBuffer = Buffer.from(fileBuffer, 'base64');
+    }
+
     const params = {
         Bucket: bucketName,
         Key: fileName,
