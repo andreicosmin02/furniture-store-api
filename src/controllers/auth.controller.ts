@@ -34,7 +34,7 @@ export const registerCustomer = async (req: Request, res: Response): Promise<any
         await user.save();
 
         res.status(201).json({
-            message: 'Customer registeres successfully',
+            message: 'Customer registered successfully',
             user: {
                 id: user._id,
                 firstName: user.firstName,
