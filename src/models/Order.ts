@@ -3,6 +3,8 @@ import { Schema, model, Document, Types } from 'mongoose';
 interface IOrderProduct {
     _id: Types.ObjectId;
     product: Types.ObjectId;
+    furnitureImageKey?: string,
+    customizationAnalysis?: any;
     quantity: number;
     delivered: boolean;
 }
@@ -44,7 +46,9 @@ const orderSchema = new Schema<IOrder>({
         delivered: {
             type: Boolean,
             default: false
-        }
+        },
+        furnitureImageKey: String,
+        customizationAnalysis: Schema.Types.Mixed
     }],
     status: {
         type: String,

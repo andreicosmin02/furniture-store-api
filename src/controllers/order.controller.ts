@@ -1,43 +1,70 @@
 import { Request, Response } from 'express';
 import Order from '../models/Order';
 import Product from '../models/Product';
-import { getS3Url } from '../utils/s3Utils';
+import { getS3Url, uploadToS3 } from '../utils/s3Utils';
+import { v4 as uuidv4 } from 'uuid';
 
 export const createOrder = async (req: Request, res: Response): Promise<any> => {
     try {
         const { products, deliveryInfo } = req.body;
         const userId = req.user.userId;
-
-        // Validate products
+    
+        if (!products || !Array.isArray(products) || products.length === 0) {
+            return res.status(400).json({ error: 'No products provided' });
+        }
+    
+        const processedProducts = [];
+    
         for (const item of products) {
             const product = await Product.findById(item.product);
             if (!product) {
                 return res.status(400).json({ error: `Product ${item.product} not found` });
             }
             if (product.quantity < item.quantity) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     error: `Insufficient stock for product ${product.name}`
-                });
+            });
             }
+    
+            // Prepare imageKey and analysis if provided
+            let furnitureImageKey: string | undefined = undefined;
+    
+            if (item.furnitureImageBase64) {
+                const buffer = Buffer.from(item.furnitureImageBase64, 'base64');
+                const fileName = `custom-orders/${uuidv4()}.png`;
+                await uploadToS3(buffer, fileName, 'image/png');
+                furnitureImageKey = fileName;
+            }
+    
+            processedProducts.push({
+                product: item.product,
+                quantity: item.quantity,
+                delivered: false,
+                furnitureImageKey,
+                customizationAnalysis: item.customizationAnalysis
+                    ? JSON.parse(item.customizationAnalysis)
+                    : undefined
+            });
         }
-
-        const order = new Order({
-            user: userId,
-            products,
-            deliveryInfo
-        });
-
-        // Update product quantities
-        for (const item of products) {
+    
+        // Update product stock
+        for (const item of processedProducts) {
             await Product.findByIdAndUpdate(
-                item.product,
-                { $inc: { quantity: -item.quantity } }
+            item.product,
+            { $inc: { quantity: -item.quantity } }
             );
         }
-
+    
+        const order = new Order({
+            user: userId,
+            products: processedProducts,
+            deliveryInfo
+        });
+    
         await order.save();
         res.status(201).json(order);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Order creation failed' });
     }
 };
