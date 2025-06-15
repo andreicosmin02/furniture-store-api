@@ -3,6 +3,9 @@ import Order from '../models/Order';
 import Product from '../models/Product';
 import { getS3Url, uploadToS3 } from '../utils/s3Utils';
 import { v4 as uuidv4 } from 'uuid';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { s3Client } from '../config/s3';
+import { Types } from 'mongoose';
 
 export const createOrder = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -23,23 +26,22 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             if (product.quantity < item.quantity) {
                 return res.status(400).json({
                     error: `Insufficient stock for product ${product.name}`
-            });
+                });
             }
-    
-            // Prepare imageKey and analysis if provided
+          
             let furnitureImageKey: string | undefined = undefined;
-    
+          
             if (item.furnitureImageBase64) {
                 const buffer = Buffer.from(item.furnitureImageBase64, 'base64');
                 const fileName = `custom-orders/${uuidv4()}.png`;
                 await uploadToS3(buffer, fileName, 'image/png');
                 furnitureImageKey = fileName;
             }
-    
+          
             processedProducts.push({
                 product: item.product,
                 quantity: item.quantity,
-                delivered: false,
+                status: 'pending',
                 furnitureImageKey,
                 customizationAnalysis: item.customizationAnalysis
                     ? JSON.parse(item.customizationAnalysis)
@@ -106,15 +108,43 @@ export const getOrderById = async (req: Request, res: Response): Promise<any> =>
 
 export const getUserOrders = async (req: Request, res: Response): Promise<any> => {
     try {
-        const orders = await Order.find({ user: req.user.userId })
-            .sort('-createdAt')
-            .populate('products.product', 'name price imageUrl');
-
-        res.json(orders);
+      const orders = await Order.find({ user: req.user.userId })
+        .sort('-createdAt')
+        .populate('products.product', 'name price imageKey');
+  
+      const transformedOrders = orders.map(order => {
+        const total = order.products.reduce((sum, item: any) => {
+          return sum + item.product.price * item.quantity;
+        }, 0);
+  
+        return {
+          _id: order._id,
+          orderDate: order.createdAt,
+          status: order.status,
+          items: order.products.map((item: any) => ({
+            _id: item._id,
+            product: {
+              _id: item.product._id,
+              name: item.product.name,
+              price: item.product.price
+            },
+            quantity: item.quantity,
+            status: item.delivered ? 'delivered' : order.status,
+            customization: item.customizationAnalysis ? {
+              analysis: item.customizationAnalysis
+            } : undefined
+          })),
+          total
+        };
+      });
+  
+      res.json(transformedOrders);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch orders' });
+      console.error('getUserOrders error:', error);
+      res.status(500).json({ error: 'Failed to fetch orders' });
     }
-};
+  };
+
 
 export const updateOrderStatus = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -131,6 +161,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
         }
 
         order.status = status;
+        
+        // Update all items' status except those already delivered
+        order.products.forEach(item => {
+            if (item.status !== 'delivered') {
+                item.status = status;
+            }
+        });
+
         await order.save();
 
         res.json(order);
@@ -142,6 +180,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 export const updateProductDeliveryStatus = async (req: Request, res: Response): Promise<any> => {
     try {
         const { orderId, productId } = req.params;
+        const { status } = req.body;
+        
         const order = await Order.findOne({
             _id: orderId,
             'products._id': productId
@@ -158,7 +198,7 @@ export const updateProductDeliveryStatus = async (req: Request, res: Response): 
 
         const product = order.products.find(p => p._id.toString() === productId);
         if (product) {
-            product.delivered = req.body.delivered;
+            product.status = status;
             await order.save();
         }
 
@@ -183,5 +223,77 @@ export const getAllOrders = async (req: Request, res: Response): Promise<any> =>
         res.json(orders);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+};
+
+export const getOrderItemImage = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { orderId, itemId } = req.params;
+        const userId = req.user.userId;
+
+        // Validate IDs format first
+        if (!Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ error: 'Invalid order ID format' });
+        }
+        if (!Types.ObjectId.isValid(itemId)) {
+            return res.status(400).json({ error: 'Invalid item ID format' });
+        }
+
+        // Find order and check ownership
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Authorization check
+        if (order.user.toString() !== userId && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized to access this order' });
+        }
+
+        // Find the specific item
+        const item = order.products.find(p => p._id.toString() === itemId);
+        if (!item) {
+            return res.status(404).json({ 
+                error: 'Order item not found',
+                availableItems: order.products.map(p => p._id.toString())
+            });
+        }
+
+        if (!item.furnitureImageKey) {
+            return res.status(404).json({ 
+                error: 'No custom image available for this item',
+                itemId: item._id.toString()
+            });
+        }
+
+        // Get image from S3
+        const command = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET_NAME!,
+            Key: item.furnitureImageKey,
+        });
+
+        const { Body, ContentType } = await s3Client.send(command);
+
+        // Set response headers
+        res.set({
+            'Content-Type': ContentType || 'image/png',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Content-Disposition': `inline; filename="${item.furnitureImageKey.split('/').pop()}"`
+        });
+
+        // Stream the image
+        (Body as NodeJS.ReadableStream).pipe(res);
+
+    } catch (error) {
+        console.error('Error in getOrderItemImage:', error);
+        
+        if (error instanceof Error && error.name === 'NoSuchKey') {
+            return res.status(404).json({ error: 'Image file not found in storage' });
+        }
+        
+        res.status(500).json({ 
+            error: 'Failed to fetch custom image',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 };

@@ -3,10 +3,10 @@ import { Schema, model, Document, Types } from 'mongoose';
 interface IOrderProduct {
     _id: Types.ObjectId;
     product: Types.ObjectId;
-    furnitureImageKey?: string,
+    furnitureImageKey?: string;
     customizationAnalysis?: any;
     quantity: number;
-    delivered: boolean;
+    status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'; // Add item-level status
 }
 
 interface IDeliveryInfo {
@@ -43,9 +43,10 @@ const orderSchema = new Schema<IOrder>({
             required: true,
             min: 1
         },
-        delivered: {
-            type: Boolean,
-            default: false
+        status: {  // Add item-level status
+            type: String,
+            enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+            default: 'pending'
         },
         furnitureImageKey: String,
         customizationAnalysis: Schema.Types.Mixed
