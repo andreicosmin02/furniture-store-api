@@ -151,3 +151,59 @@ export const updateStock = async (req: Request, res: Response): Promise<any> => 
     }
 };
 
+export const getCategories = async (req: Request, res: Response): Promise<any> => {
+    try {
+      const categories = await Product.distinct('category');
+      res.json({ categories });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+};
+
+// Get One Random Product ID Per Category
+export const getRandomProductPerCategory = async (req: Request, res: Response): Promise<any> => {
+    try {
+        // Get all unique categories
+        const categories = await Product.distinct('category');
+        
+        // Get one random product for each category
+        const randomProducts = await Promise.all(
+            categories.map(async (category) => {
+                const [product] = await Product.aggregate([
+                    { $match: { category } },
+                    { $sample: { size: 1 } }, // random sample
+                    { $project: { _id: 1 } }   // only return ID
+                ]);
+                return product ? { category, productId: product._id } : null;
+            })
+        );
+
+        // Filter out nulls in case a category has no products
+        const result = randomProducts.filter(Boolean);
+
+        res.json({ products: result });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch random products' });
+    }
+};
+
+// Get Products by Category
+export const getProductsByCategory = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { category } = req.params;
+
+        if (!category) {
+            return res.status(400).json({ error: 'Category is required' });
+        }
+
+        const products = await Product.find({ category }).sort({ createdAt: -1 }).select('-imageKey');
+
+        if (products.length === 0) {
+            return res.status(404).json({ error: 'No products found for this category' });
+        }
+
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch products by category' });
+    }
+};

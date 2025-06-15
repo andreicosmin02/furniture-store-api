@@ -7,7 +7,10 @@ import {
     getProductImage,
     updateProduct,
     deleteProduct,
-    updateStock
+    updateStock,
+    getCategories,
+    getRandomProductPerCategory,
+    getProductsByCategory
 } from '../controllers/product.controller';
 import multer from 'multer';
 
@@ -16,6 +19,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Public routes
 router.get('/', getAllProducts);
+router.get('/get/categories', getCategories);
+router.get('/category/:category', getProductsByCategory);
+router.get('/get/random-per-category', getRandomProductPerCategory);
 router.get('/:id', getProductById);
 router.get('/:id/image', getProductImage);
 

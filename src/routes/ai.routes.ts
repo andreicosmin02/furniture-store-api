@@ -11,6 +11,7 @@ router.post(
 );
 router.post('/generate/furniture-only', authenticateJWT as any, generateFurnitureOnlyImage as any);
 router.post('/generate/in-room', authenticateJWT as any, generateFurnitureInRoomImage as any);
+
 router.post('/generate/room-with-products', authenticateJWT as any, generateRoomImage as any);
 router.post('/analyze/room-with-products', authenticateJWT as any, analyzeRoomWithProducts as any);
 
