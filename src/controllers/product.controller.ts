@@ -207,3 +207,33 @@ export const getProductsByCategory = async (req: Request, res: Response): Promis
         res.status(500).json({ error: 'Failed to fetch products by category' });
     }
 };
+
+export const searchProducts = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { query } = req.query;
+
+        if (!query || typeof query !== 'string') {
+            return res.status(400).json({ error: 'Search query is required' });
+        }
+
+        // Remove special characters and create a regex pattern that allows for typos
+        const sanitizedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const searchRegex = new RegExp(sanitizedQuery, 'i'); // 'i' for case insensitive
+
+        // Search in both name and category fields
+        const products = await Product.find({
+            $or: [
+                { name: { $regex: searchRegex } },
+                { category: { $regex: searchRegex } }
+            ]
+        }).sort({ createdAt: -1 }).select('-imageKey');
+
+        if (products.length === 0) {
+            return res.status(404).json({ message: 'No products found matching your search' });
+        }
+
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ error: 'Search failed' });
+    }
+};

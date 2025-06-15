@@ -10,7 +10,8 @@ import {
     updateStock,
     getCategories,
     getRandomProductPerCategory,
-    getProductsByCategory
+    getProductsByCategory,
+    searchProducts
 } from '../controllers/product.controller';
 import multer from 'multer';
 
@@ -24,6 +25,8 @@ router.get('/category/:category', getProductsByCategory);
 router.get('/get/random-per-category', getRandomProductPerCategory);
 router.get('/:id', getProductById);
 router.get('/:id/image', getProductImage);
+router.get('/get/search', searchProducts);
+
 
 // Admin protected routes
 router.post('/', authenticateJWT as any, authorizeAdmin as any, upload.single('image'), createProduct as any);

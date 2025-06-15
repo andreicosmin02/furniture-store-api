@@ -17,7 +17,7 @@ const router = express.Router();
 router.post('/', authenticateJWT as any, createOrder);
 router.get('/my-orders', authenticateJWT as any, getUserOrders);
 router.get('/:id', authenticateJWT as any, getOrderById);
-router.get('/all', authenticateJWT as any, getAllOrders);
+router.get('/get/all', authenticateJWT as any, getAllOrders);
 router.get('/:orderId/item/:itemId/image', authenticateJWT as any, getOrderItemImage);
 
 // Admin routes
